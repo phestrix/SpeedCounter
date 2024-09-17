@@ -1,28 +1,7 @@
 package input
 
-class InputResolver {
-
-
-    fun resolveInput(input: Array<String>): HashMap<String, Any> {
-        val mapOfResults = HashMap<String, Any>()
-        if (!validateInput(input)) {
-            mapOfResults["error"] = "Invalid input. Please provide address, port and path."
-        }
-
-        checkAddress(input[0]).let {
-            if (!it) mapOfResults["error"] = "Invalid address."
-        }
-
-        checkPort(input[1]).let {
-            if (!it) mapOfResults["error"] = "Invalid port."
-        }
-
-        mapOfResults["address"] = input[0]
-        mapOfResults["port"] = input[1].toInt()
-        mapOfResults["path"] = input[2]
-        return mapOfResults
-    }
-
+class InputResolver(input: Array<String>) : InputParser {
+    private val mapOfResults = HashMap<String, Any>()
     private fun validateInput(input: Array<String>): Boolean {
         if (input.size != 3) {
             println("Invalid input. Please provide address, port and path.")
@@ -56,8 +35,38 @@ class InputResolver {
     }
 
     private fun checkPort(port: String): Boolean {
-        if (port.isEmpty() || port.toInt() !in 1..65535) return false
-        return true
+        return !(port.isEmpty() || port.toInt() !in 1..65535)
     }
+
+    init {
+        if (!validateInput(input)) {
+            mapOfResults["error"] = "Invalid input. Please provide address, port and path."
+        }
+
+        checkAddress(input[0]).let {
+            if (!it) mapOfResults["error"] = "Invalid address."
+        }
+
+        checkPort(input[1]).let {
+            if (!it) mapOfResults["error"] = "Invalid port."
+        }
+        mapOfResults["address"] = input[0]
+        mapOfResults["port"] = input[1].toInt()
+        mapOfResults["path"] = input[2]
+
+    }
+
+    override fun getAddress(): String {
+        return mapOfResults["address"] as String
+    }
+
+    override fun getPort(): Int {
+        return mapOfResults["port"] as Int
+    }
+
+    override fun getPath(): String {
+        return mapOfResults["path"] as String
+    }
+
 
 }
