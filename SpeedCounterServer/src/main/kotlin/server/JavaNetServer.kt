@@ -5,7 +5,7 @@ import java.io.*
 import java.net.ServerSocket
 import java.net.Socket
 
-class ServerImplementation(private val port: Int, private val writer: Writer) : Server() {
+class JavaNetServer(private val port: Int, private val writer: Writer) : Server() {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val serverSocket = ServerSocket(port)
 
