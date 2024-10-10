@@ -11,7 +11,7 @@ import kotlinx.coroutines.runBlocking
 import output.Writer
 import java.io.File
 
-class KtorClient(private val filepath: String, private val writer: Writer) : Client {
+class KtorClient(filepath: String, private val writer: Writer) : Client {
     private val file = File(filepath)
     private val sizeOfFile = file.length()
     private val fileName = file.name

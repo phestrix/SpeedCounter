@@ -34,7 +34,7 @@ class JavaClient(filepath: String, private val writer: Writer) : Client {
 
                         // Read server response
                         val response = input.readUTF()
-                        writer.write("Server response: $response");
+                        writer.write("Server response: $response")
                     }
                 }
             }
