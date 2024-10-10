@@ -8,7 +8,7 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.net.Socket
 
-class ClientImplementation(private val filepath: String, private val writer: Writer) : Client {
+class JavaClient(filepath: String, private val writer: Writer) : Client {
     private val file = File(filepath)
     private val sizeOfFile = file.length()
 

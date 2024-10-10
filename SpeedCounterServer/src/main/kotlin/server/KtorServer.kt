@@ -15,19 +15,20 @@ import java.io.FileOutputStream
 
 class KtorServer(private val port: Int, private val writer: Writer) : Server() {
     private val selectorManager = ActorSelectorManager(Dispatchers.IO)
-    private val scope = CoroutineScope(Dispatchers.IO)
 
-    override fun start() {
-        scope.launch {
-            val serverSocket = aSocket(selectorManager).tcp().bind("127.0.0.1", port)
-            writer.write("Server started on $port")
-            while (true) {
-                val clientSocket = serverSocket.accept()
-                scope.launch {
-                    handleClient(clientSocket)
+    override fun start() = runBlocking(Dispatchers.IO) {
+            try{
+                val serverSocket = aSocket(selectorManager).tcp().bind("127.0.0.1", port)
+                writer.write("Server started on $port")
+                while (true) {
+                    val clientSocket = serverSocket.accept()
+                    launch {
+                        handleClient(clientSocket)
+                    }
                 }
+            }catch (e: Exception){
+            writer.write("Failed to start server: ${e.message}")
             }
-        }
     }
 
     private suspend fun handleClient(clientSocket: Socket) {

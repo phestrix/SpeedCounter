@@ -11,6 +11,7 @@ class Controller(input: Array<String>) {
     private val writer = SOutWriter()
     private val server: Server = ServerFactory().createServerByName("Ktor", port, writer)
 
+
     fun run(){
         server.start()
     }

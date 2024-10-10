@@ -2,6 +2,9 @@ package input
 
 class InputResolver {
     fun resolveInput(input: Array<String>): String{
+        if(input.isEmpty()){
+            throw IllegalArgumentException("empty input")
+        }
        val port = input[0]
         if (checkPort(port)) {
             println("Port is valid")
