@@ -11,24 +11,28 @@ import kotlinx.coroutines.*
 import output.Writer
 import java.io.File
 import java.io.FileOutputStream
+import java.net.InetAddress
+import java.net.NetworkInterface
+import kotlin.collections.iterator
 
 
 class KtorServer(private val port: Int, private val writer: Writer) : Server() {
     private val selectorManager = ActorSelectorManager(Dispatchers.IO)
 
     override fun start() = runBlocking(Dispatchers.IO) {
-            try{
-                val serverSocket = aSocket(selectorManager).tcp().bind("127.0.0.1", port)
-                writer.write("Server started on $port")
-                while (true) {
-                    val clientSocket = serverSocket.accept()
-                    launch {
-                        handleClient(clientSocket)
-                    }
+        try {
+            val localAddress = getLocalIPv4Address()
+            val serverSocket = aSocket(selectorManager).tcp().bind(localAddress, port = port)
+            writer.write("Server started on $port $localAddress")
+            while (true) {
+                val clientSocket = serverSocket.accept()
+                launch {
+                    handleClient(clientSocket)
                 }
-            }catch (e: Exception){
-            writer.write("Failed to start server: ${e.message}")
             }
+        } catch (e: Exception) {
+            writer.write("Failed to start server: ${e.message}")
+        }
     }
 
     private suspend fun handleClient(clientSocket: Socket) {
@@ -48,26 +52,28 @@ class KtorServer(private val port: Int, private val writer: Writer) : Server() {
                     val buffer = ByteArray(4096)
                     var totalBytesRead = 0L
                     val startTime = System.currentTimeMillis()
-                    var lastTime = startTime
+                    var transferComplete = false
+                    val speedJob = launch {
+                        while (!transferComplete) {
+                            delay(1500)
+                            val currentTime = System.currentTimeMillis()
+                            val speed = totalBytesRead / ((currentTime - startTime) / 1024.0)
+                            writer.write("Client ${clientSocket.remoteAddress}: Speed = $speed kilobytes/sec")
+                        }
+                    }
 
                     while (totalBytesRead < fileSize) {
                         val bytesRead = input.readAvailable(buffer, 0, buffer.size)
                         if (bytesRead == -1) break
                         fileOutput.write(buffer, 0, bytesRead)
                         totalBytesRead += bytesRead
-
-                        val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastTime >= 3000) {
-                            val speed = totalBytesRead / ((currentTime - startTime) / 1000.0)
-                            writer.write("Client ${clientSocket.remoteAddress}: Speed = $speed bytes/sec")
-                            lastTime = currentTime
-                        }
                     }
 
                     val endTime = System.currentTimeMillis()
-                    val averageSpeed = totalBytesRead / ((endTime - startTime) / 1000.0)
-                    writer.write("Client ${clientSocket.remoteAddress}: Average Speed = $averageSpeed bytes/sec")
-
+                    val averageSpeed = totalBytesRead / ((endTime - startTime) / 1024.0)
+                    writer.write("Client ${clientSocket.remoteAddress}: Average Speed = $averageSpeed kilobytes/sec")
+                    transferComplete = true
+                    speedJob.join()
                     if (totalBytesRead == fileSize) {
                         output.writeStringUtf8("File transfer successful\n")
                     } else {
@@ -77,6 +83,21 @@ class KtorServer(private val port: Int, private val writer: Writer) : Server() {
             }
         } catch (e: Exception) {
             writer.write("Error: ${e.message}")
+        } finally {
+            clientSocket.close()
         }
+    }
+
+    private fun getLocalIPv4Address(): String {
+        val interfaces = NetworkInterface.getNetworkInterfaces()
+        for (networkInterface in interfaces) {
+            val addresses = networkInterface.inetAddresses
+            for (address in addresses) {
+                if (!address.isLoopbackAddress && address is InetAddress && address.hostAddress.indexOf(':') == -1) {
+                    return address.hostAddress
+                }
+            }
+        }
+        throw RuntimeException("No suitable IPv4 address found")
     }
 }
