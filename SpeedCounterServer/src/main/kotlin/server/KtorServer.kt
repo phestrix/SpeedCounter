@@ -18,11 +18,13 @@ import kotlin.collections.iterator
 
 class KtorServer(private val port: Int, private val writer: Writer) : Server() {
     private val selectorManager = ActorSelectorManager(Dispatchers.IO)
+    private val speedCounter = SpeedCounter()
 
     override fun start() = runBlocking(Dispatchers.IO) {
         try {
             val localAddress = getLocalIPv4Address()
             val serverSocket = aSocket(selectorManager).tcp().bind(localAddress, port = port)
+
             writer.write("Server started on $port $localAddress")
             while (true) {
                 val clientSocket = serverSocket.accept()
@@ -49,16 +51,29 @@ class KtorServer(private val port: Int, private val writer: Writer) : Server() {
                 val file = File(uploadDir, fileName)
 
                 FileOutputStream(file).use { fileOutput ->
-                    val buffer = ByteArray(4096)
+                    val buffer = ByteArray(8192)
                     var totalBytesRead = 0L
                     val startTime = System.currentTimeMillis()
+
+                    var lastBytesRead = 0L
                     var transferComplete = false
                     val speedJob = launch {
+                        var lastTime = System.currentTimeMillis()
                         while (!transferComplete) {
-                            delay(1500)
+                            delay(3000)
+                            lastBytesRead = totalBytesRead - lastBytesRead
                             val currentTime = System.currentTimeMillis()
-                            val speed = totalBytesRead / ((currentTime - startTime) / 1024.0)
-                            writer.write("Client ${clientSocket.remoteAddress}: Speed = $speed kilobytes/sec")
+                            val speed = speedCounter.countSpeedInMegaBytes(lastTime, currentTime, lastBytesRead)
+
+                            writer.write("Client ${clientSocket.remoteAddress} with file ${fileName}: " +
+                                    "Speed in moment = $speed MB/s")
+                            val averageSpeed = speedCounter.countSpeedInMegaBytes(lastTime, currentTime, totalBytesRead)
+
+                            writer.write("Client ${clientSocket.remoteAddress} with file ${fileName}: " +
+                                    "Average speed = $averageSpeed MB/s")
+
+                            lastTime = System.currentTimeMillis()
+                            lastBytesRead = totalBytesRead
                         }
                     }
 
@@ -68,12 +83,12 @@ class KtorServer(private val port: Int, private val writer: Writer) : Server() {
                         fileOutput.write(buffer, 0, bytesRead)
                         totalBytesRead += bytesRead
                     }
-
-                    val endTime = System.currentTimeMillis()
-                    val averageSpeed = totalBytesRead / ((endTime - startTime) / 1024.0)
-                    writer.write("Client ${clientSocket.remoteAddress}: Average Speed = $averageSpeed kilobytes/sec")
                     transferComplete = true
                     speedJob.join()
+                    val endTime = System.currentTimeMillis()
+                    val averageSpeed = speedCounter.countSpeedInMegaBytes(endTime, startTime, totalBytesRead)
+                    writer.write("Client ${clientSocket.remoteAddress} with file $fileName: Average Speed = $averageSpeed MB/s")
+
                     if (totalBytesRead == fileSize) {
                         output.writeStringUtf8("File transfer successful\n")
                     } else {
@@ -99,5 +114,12 @@ class KtorServer(private val port: Int, private val writer: Writer) : Server() {
             }
         }
         throw RuntimeException("No suitable IPv4 address found")
+    }
+
+    inner class SpeedCounter {
+        private val MEGA = 1024 * 1024
+        fun countSpeedInMegaBytes(startTime: Long, endTime: Long, bytesRead: Long): Long {
+            return (bytesRead / ((endTime - startTime) / 1000)) / MEGA
+        }
     }
 }

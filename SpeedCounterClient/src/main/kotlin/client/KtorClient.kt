@@ -17,6 +17,7 @@ class KtorClient(filepath: String, private val writer: Writer) : Client {
     private val fileName = file.name
     override fun start(address: String, port: Int) = runBlocking(Dispatchers.IO) {
         val socket = aSocket(SelectorManager(Dispatchers.IO)).tcp().connect(address, port)
+        writer.write("Connected to server: $address:$port")
         val sendChannel = socket.openWriteChannel(autoFlush = true)
         val receiveChannel = socket.openReadChannel()
 
@@ -24,7 +25,7 @@ class KtorClient(filepath: String, private val writer: Writer) : Client {
         sendChannel.writeLong(sizeOfFile)
 
         val fileInputStream = file.inputStream()
-        val buffer = ByteArray(4096)
+        val buffer = ByteArray(8192)
         var bytesRead: Int
 
         while (fileInputStream.read(buffer).also { bytesRead = it } != -1) {
