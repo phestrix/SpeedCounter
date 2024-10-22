@@ -63,14 +63,18 @@ class KtorServer(private val port: Int, private val writer: Writer) : Server() {
                             delay(3000)
                             lastBytesRead = totalBytesRead - lastBytesRead
                             val currentTime = System.currentTimeMillis()
+
                             val speed = speedCounter.countSpeedInMegaBytes(lastTime, currentTime, lastBytesRead)
+                            writer.write(
+                                "Client ${clientSocket.remoteAddress} with file ${fileName}: " +
+                                        "Speed in moment = $speed MB/s"
+                            )
 
-                            writer.write("Client ${clientSocket.remoteAddress} with file ${fileName}: " +
-                                    "Speed in moment = $speed MB/s")
-                            val averageSpeed = speedCounter.countSpeedInMegaBytes(lastTime, currentTime, totalBytesRead)
-
-                            writer.write("Client ${clientSocket.remoteAddress} with file ${fileName}: " +
-                                    "Average speed = $averageSpeed MB/s")
+                            val averageSpeed = speedCounter.countSpeedInMegaBytes(startTime, currentTime, totalBytesRead)
+                            writer.write(
+                                "Client ${clientSocket.remoteAddress} with file ${fileName}: " +
+                                        "Average speed = $averageSpeed MB/s"
+                            )
 
                             lastTime = System.currentTimeMillis()
                             lastBytesRead = totalBytesRead
@@ -83,11 +87,12 @@ class KtorServer(private val port: Int, private val writer: Writer) : Server() {
                         fileOutput.write(buffer, 0, bytesRead)
                         totalBytesRead += bytesRead
                     }
+
                     transferComplete = true
                     speedJob.join()
                     val endTime = System.currentTimeMillis()
-                    val averageSpeed = speedCounter.countSpeedInMegaBytes(endTime, startTime, totalBytesRead)
-                    writer.write("Client ${clientSocket.remoteAddress} with file $fileName: Average Speed = $averageSpeed MB/s")
+                    val averageSpeed = speedCounter.countSpeedInMegaBytes(startTime, endTime, totalBytesRead)
+                    writer.write("Client ${clientSocket.remoteAddress} with file $fileName: Total Average Speed = $averageSpeed MB/s")
 
                     if (totalBytesRead == fileSize) {
                         output.writeStringUtf8("File transfer successful\n")
